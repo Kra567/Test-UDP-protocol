@@ -3,14 +3,17 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <string>
 
 #include <arpa/inet.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -106,9 +109,32 @@ public:
     std::optional<std::array<std::uint8_t, N>> receive(
         const MessageType& expected_type,
         std::optional<std::uint32_t>& exchange_id,
-        std::optional<UdpAddress>& sender
+        std::optional<UdpAddress>& sender,
+        std::optional<std::chrono::milliseconds> max_wait = std::nullopt
     ) {
         static_assert(N <= 2048, "UDP payload exceeds 2048 bytes");
+
+        if (max_wait) {
+            const auto deadline = std::chrono::steady_clock::now() + *max_wait;
+            for (;;) {
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now());
+                const auto milliseconds = std::clamp<std::chrono::milliseconds::rep>(
+                    remaining.count(), 0, std::numeric_limits<int>::max());
+                pollfd ready{fd_, POLLIN, 0};
+                const int result = ::poll(&ready, 1, static_cast<int>(milliseconds));
+                if (result > 0) {
+                    break;
+                }
+                if (result == 0) {
+                    return std::nullopt;
+                }
+                if (errno != EINTR) {
+                    std::cerr << "poll: " << std::strerror(errno) << '\n';
+                    return std::nullopt;
+                }
+            }
+        }
 
         // Лишний байт позволяет обнаружить датаграмму длиннее ожидаемой.
         std::array<std::uint8_t, 12 + N + 1> packet{};
