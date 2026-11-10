@@ -12,6 +12,8 @@
 #include <optional>
 #include <string>
 
+#include "secure_bytes.hpp"
+
 #include <arpa/inet.h>
 #include <poll.h>
 #include <sys/socket.h>
@@ -86,7 +88,7 @@ public:
             return false;
         }
 
-        std::array<std::uint8_t, 12 + N> packet{};
+        SecureBytes<12 + N> packet{};
         packet[0] = static_cast<std::uint8_t>(MAGIC >> 24);
         packet[1] = static_cast<std::uint8_t>(MAGIC >> 16);
         packet[2] = static_cast<std::uint8_t>(MAGIC >> 8);
@@ -106,7 +108,7 @@ public:
     }
 
     template<std::size_t N>
-    std::optional<std::array<std::uint8_t, N>> receive(
+    std::optional<SecureBytes<N>> receive(
         const MessageType& expected_type,
         std::optional<std::uint32_t>& exchange_id,
         std::optional<UdpAddress>& sender,
@@ -137,7 +139,7 @@ public:
         }
 
         // Лишний байт позволяет обнаружить датаграмму длиннее ожидаемой.
-        std::array<std::uint8_t, 12 + N + 1> packet{};
+        SecureBytes<12 + N + 1> packet{};
         sockaddr_in actual_sender{};
         socklen_t sender_length = sizeof(actual_sender);
         const ssize_t received = ::recvfrom(
@@ -205,7 +207,7 @@ public:
             }
         }
 
-        std::array<std::uint8_t, N> payload{};
+        SecureBytes<N> payload{};
         std::copy_n(packet.begin() + 12, N, payload.begin());
         if (!sender) {
             sender = actual_address;

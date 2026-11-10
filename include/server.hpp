@@ -12,6 +12,7 @@
 
 #include "cryptography.hpp"
 #include "udp_channel.hpp"
+#include "secure_bytes.hpp"
 
 class ConfirmReceiveState {
 public:
@@ -85,14 +86,12 @@ public:
             }
             if (!used_ids_.insert(*id).second) {
                 std::cerr << "Repeated exchange_id: " << *id << '\n';
-                secure_zero(init->data(), init->size());
-                continue;
+                    continue;
             }
 
             const auto deadline = Clock::now() + std::chrono::seconds(5);
             auto crypto = std::make_unique<CryptoContext>();
             crypto->client_random = *init;
-            secure_zero(init->data(), init->size());
             for (auto& byte : crypto->server_random) {
                 byte = static_cast<std::uint8_t>(random_());
             }
@@ -101,11 +100,10 @@ public:
             }
             crypto->calculate_secret(*id);
 
-            std::array<std::uint8_t, 64> reply{};
+            SecureBytes<64> reply{};
             std::copy(crypto->server_random.begin(), crypto->server_random.end(), reply.begin());
             std::copy(crypto->nonce.begin(), crypto->nonce.end(), reply.begin() + 32);
             const bool sent = channel_.send(MessageType::INIT_ACK, *id, reply, *sender);
-            secure_zero(reply.data(), reply.size());
             if (!sent) {
                 std::cerr << "sendto INIT_ACK failed\n";
                 return std::nullopt;

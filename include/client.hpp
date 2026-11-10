@@ -12,6 +12,7 @@
 
 #include "cryptography.hpp"
 #include "udp_channel.hpp"
+#include "secure_bytes.hpp"
 
 class ConfirmAckReceiveState {
 public:
@@ -103,13 +104,11 @@ public:
                 continue;
             }
             if (steady_clock::now() >= deadline) {
-                secure_zero(ack->data(), ack->size());
                 break;
             }
 
             std::copy_n(ack->begin(), 32, crypto->server_random.begin());
             std::copy_n(ack->begin() + 32, 32, crypto->nonce.begin());
-            secure_zero(ack->data(), ack->size());
             crypto->calculate_secret(exchange_id);
             return std::optional<ConfirmAckReceiveState>{
                 std::in_place, channel_, std::move(crypto), exchange_id, server_, deadline
