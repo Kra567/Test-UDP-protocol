@@ -48,3 +48,18 @@ tag    = HMAC-SHA256(secret, type || exchange_id || client_random || server_rand
 В `third_party/sha-256.c` и `third_party/sha-256.h` находятся **неизменённые** файлы [amosnier/sha-2](https://github.com/amosnier/sha-2): [исходник](https://github.com/amosnier/sha-2/blob/master/sha-256.c), [заголовок](https://github.com/amosnier/sha-2/blob/master/sha-256.h), [лицензия Unlicense/0BSD](https://github.com/amosnier/sha-2/blob/master/LICENSE.md). Взятый код хранит восемь 32-битных слов состояния, обрабатывает данные блоками по 64 байта, дополняет последний блок и выдаёт 32-байтный хеш. `sha_256_init(ctx, hash)` принимает контекст и выходной буфер, `sha_256_write(ctx, data, size)` добавляет байты, `sha_256_close(ctx)` завершает расчёт и возвращает указатель на выходной буфер. HMAC написан в `include/cryptography.hpp` поверх этих функций.
 
 После завершения попытки деструктор `CryptoContext` затирает `secret` и случайные байты. `src/secure_zero.c` — отдельная реализация на чистом C: записи через `volatile unsigned char*` не удаляются компилятором как неиспользуемые. Тег HMAC сравнивается без раннего выхода при несовпадении байтов.
+
+## Тесты
+
+Интеграционные тесты (pytest) запускают реальные бинарники `server` и `client`
+через подпроцессы и проверяют успешный обмен, таймауты, битые/чужие пакеты,
+неверный magic/type/длину, неверный HMAC и повтор `exchange_id`.
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r tests/requirements.txt
+.venv/bin/pytest
+```
+
+CI (`.github/workflows/ci.yml`) собирает проект с `-Wall -Wextra -Werror` и
+запускает `pytest`; падение любого шага останавливает job и оставляет лог.

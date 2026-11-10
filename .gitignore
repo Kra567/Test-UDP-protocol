@@ -1,2 +1,6 @@
 build/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
 Тестовое задание Junior_Middle_C_C++.pdf
